@@ -22,4 +22,7 @@ use axios get,post,delete, patch for secure apis and must use:{ withCredentials:
  * 4rth: validate the token in the server side:
  * if valid: provide data
  * if not valid: logout user
+ * 
+ * 5: check right user accessing his/her own data based on permission
+ * 
  * **/
