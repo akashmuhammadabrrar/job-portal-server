@@ -22,6 +22,28 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
+const logger = (req, res, next) => {
+  console.log("inside the logger");
+  next();
+};
+
+const verifyToken = (req, res, next) => {
+  console.log("inside verify token middleware");
+  const token = req?.cookies?.token;
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "Unauthorized access" });
+    }
+    req.user = decoded;
+    //
+    next();
+  });
+};
+
 // root api
 app.get("/", async (req, res) => {
   res.send("working hard and get a job");
@@ -58,11 +80,11 @@ async function run() {
     // Auth related api's
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "1h" });
+      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "1d" });
       res
         .cookie("token", token, {
           httpOnly: true,
-          secure: false, // http//localhost:5173/signin
+          secure: false, // for local host==> http//localhost:5173/signin
         })
         .send({ success: true });
     });
@@ -70,7 +92,8 @@ async function run() {
     //  jobs related apis
     // 2: get api for get all the data from database
     // 3: get data by recruiter with email query(conditionally)
-    app.get("/jobs", async (req, res) => {
+    app.get("/jobs", logger, async (req, res) => {
+      console.log(logger, "now inside the callback");
       const email = req.query.email;
       let query = {};
       if (email) {
@@ -97,10 +120,12 @@ async function run() {
 
     // job applications api's  (data sending form client)
     // get all data, get one data, some data [0,1,many]
-    app.get("/job-application", async (req, res) => {
+    app.get("/job-application", verifyToken, async (req, res) => {
       const email = req.query.email;
       const query = { applicant_email: email };
-      console.log("cuk cuk cookie", req.cookies);
+      if (req.user.email !== req.query.email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
       const result = await JobApplicantsCollection.find(query).toArray();
 
       // worse way to aggregate data (this is not the best way)
